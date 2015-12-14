@@ -34,15 +34,10 @@ import org.apache.coyote.AsyncContextCallback;
 import org.apache.coyote.ErrorState;
 import org.apache.coyote.RequestInfo;
 import org.apache.coyote.UpgradeToken;
-import org.apache.coyote.http11.filters.BufferedInputFilter;
-import org.apache.coyote.http11.filters.ChunkedInputFilter;
-import org.apache.coyote.http11.filters.ChunkedOutputFilter;
-import org.apache.coyote.http11.filters.GzipOutputFilter;
-import org.apache.coyote.http11.filters.IdentityInputFilter;
-import org.apache.coyote.http11.filters.IdentityOutputFilter;
-import org.apache.coyote.http11.filters.SavedRequestInputFilter;
-import org.apache.coyote.http11.filters.VoidInputFilter;
-import org.apache.coyote.http11.filters.VoidOutputFilter;
+import org.apache.coyote.http11.compression.CompressionLevel;
+import org.apache.coyote.http11.compression.CompressionMethod;
+import org.apache.coyote.http11.compression.CompressionMethodSelector;
+import org.apache.coyote.http11.filters.*;
 import org.apache.tomcat.util.ExceptionUtils;
 import org.apache.tomcat.util.buf.Ascii;
 import org.apache.tomcat.util.buf.ByteChunk;
@@ -57,6 +52,12 @@ import org.apache.tomcat.util.net.DispatchType;
 import org.apache.tomcat.util.net.SocketStatus;
 import org.apache.tomcat.util.net.SocketWrapper;
 import org.apache.tomcat.util.res.StringManager;
+
+import static org.apache.coyote.http11.compression.CompressionLevel.FORCE;
+import static org.apache.coyote.http11.compression.CompressionLevel.ON;
+import static org.apache.coyote.http11.compression.CompressionMethod.BROTLI;
+import static org.apache.coyote.http11.compression.CompressionMethod.GZIP;
+import static org.apache.coyote.http11.compression.CompressionMethod.NONE;
 
 public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
 
@@ -188,7 +189,7 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
     /**
      * Allowed compression level.
      */
-    protected int compressionLevel = 0;
+    protected CompressionLevel compressionLevel = CompressionLevel.OFF;
 
 
     /**
@@ -203,10 +204,7 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
     protected int maxSavePostSize = 4 * 1024;
 
 
-    /**
-     * Regular expression that defines the user agents to not use gzip with
-     */
-    protected Pattern noCompressionUserAgents = null;
+    private CompressionMethodSelector compressionMethodSelector = new CompressionMethodSelector();
 
     /**
      * List of MIMES which could be gzipped
@@ -244,20 +242,15 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
      * Set compression level.
      */
     public void setCompression(String compression) {
-        if (compression.equals("on")) {
-            this.compressionLevel = 1;
-        } else if (compression.equals("force")) {
-            this.compressionLevel = 2;
-        } else if (compression.equals("off")) {
-            this.compressionLevel = 0;
-        } else {
+        compressionLevel = CompressionLevel.fromStringOrNull(compression);
+        if (compressionLevel == null) {
             try {
                 // Try to parse compression as an int, which would give the
                 // minimum compression size
                 compressionMinSize = Integer.parseInt(compression);
-                this.compressionLevel = 1;
+                this.compressionLevel = CompressionLevel.ON;
             } catch (Exception e) {
-                this.compressionLevel = 0;
+                this.compressionLevel = CompressionLevel.OFF;
             }
         }
     }
@@ -277,12 +270,7 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
      * ie: "gorilla|desesplorer|tigrus"
      */
     public void setNoCompressionUserAgents(String noCompressionUserAgents) {
-        if (noCompressionUserAgents == null || noCompressionUserAgents.length() == 0) {
-            this.noCompressionUserAgents = null;
-        } else {
-            this.noCompressionUserAgents =
-                Pattern.compile(noCompressionUserAgents);
-        }
+        compressionMethodSelector.setNoCompressionUserAgents(noCompressionUserAgents);
     }
 
     /**
@@ -330,15 +318,7 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
      * Return compression level.
      */
     public String getCompression() {
-        switch (compressionLevel) {
-        case 0:
-            return "off";
-        case 1:
-            return "on";
-        case 2:
-            return "force";
-        }
-        return "off";
+        return compressionLevel.asString();
     }
 
 
@@ -526,7 +506,7 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
         }
 
         // If force mode, always compress (test purposes only)
-        if (compressionLevel == 2) {
+        if (compressionLevel == FORCE) {
             return true;
         }
 
@@ -542,43 +522,6 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
         }
 
         return false;
-    }
-
-
-    /**
-     * Check if compression should be used for this resource. Already checked
-     * that the resource could be compressed if the client supports it.
-     */
-    private boolean useCompression() {
-
-        // Check if browser support gzip encoding
-        MessageBytes acceptEncodingMB =
-            request.getMimeHeaders().getValue("accept-encoding");
-
-        if ((acceptEncodingMB == null)
-            || (acceptEncodingMB.indexOf("gzip") == -1)) {
-            return false;
-        }
-
-        // If force mode, always compress (test purposes only)
-        if (compressionLevel == 2) {
-            return true;
-        }
-
-        // Check for incompatible Browser
-        if (noCompressionUserAgents != null) {
-            MessageBytes userAgentValueMB =
-                request.getMimeHeaders().getValue("user-agent");
-            if(userAgentValueMB != null) {
-                String userAgentValue = userAgentValueMB.toString();
-
-                if (noCompressionUserAgents.matcher(userAgentValue).matches()) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
     }
 
 
@@ -669,6 +612,7 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
         // Create and add the chunked filters.
         //getInputBuffer().addFilter(new GzipInputFilter());
         getOutputBuffer().addFilter(new GzipOutputFilter());
+        getOutputBuffer().addFilter(new BrotliOutputFilter());
 
         pluggableFilterIndex = getInputBuffer().getFilters().length;
     }
@@ -1456,14 +1400,14 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
 
         // Check for compression
         boolean isCompressable = false;
-        boolean useCompression = false;
-        if (entityBody && (compressionLevel > 0) && !sendingWithSendfile) {
+        CompressionMethod compressionMethod = NONE;
+        if (entityBody && (compressionLevel == ON || compressionLevel == FORCE) && !sendingWithSendfile) {
             isCompressable = isCompressable();
             if (isCompressable) {
-                useCompression = useCompression();
+                compressionMethod = compressionMethodSelector.getCompressionMethod(request, compressionLevel);
             }
             // Change content-length to -1 to force chunking
-            if (useCompression) {
+            if (compressionMethod != NONE) {
                 response.setContentLength(-1);
             }
         }
@@ -1507,9 +1451,12 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
             }
         }
 
-        if (useCompression) {
+        if (compressionMethod == GZIP) {
             getOutputBuffer().addActiveFilter(outputFilters[Constants.GZIP_FILTER]);
             headers.setValue("Content-Encoding").setString("gzip");
+        } else if (compressionMethod == BROTLI) {
+            getOutputBuffer().addActiveFilter(outputFilters[Constants.BROTLI_FILTER]);
+            headers.setValue("Content-Encoding").setString("bro");
         }
         // If it might be compressed, set the Vary header
         if (isCompressable) {

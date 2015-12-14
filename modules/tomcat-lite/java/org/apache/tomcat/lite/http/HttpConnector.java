@@ -413,7 +413,6 @@ public class HttpConnector {
         protected boolean serverMode = false;
 
         protected BBuffer headRecvBuf = BBuffer.allocate(8192);
-        protected CompressFilter compress = new CompressFilter();
 
         protected boolean secure = false;
 

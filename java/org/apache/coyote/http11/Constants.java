@@ -163,6 +163,11 @@ public final class Constants {
      */
     public static final int GZIP_FILTER = 3;
 
+    /**
+     * BROTLI filter (output).
+     */
+    public static final int BROTLI_FILTER = 4;
+
 
     /**
      * Buffered filter (input)
