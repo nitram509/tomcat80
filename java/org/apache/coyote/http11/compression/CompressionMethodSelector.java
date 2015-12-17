@@ -23,11 +23,12 @@ import org.apache.tomcat.util.buf.MessageBytes;
 import java.util.regex.Pattern;
 
 import static org.apache.coyote.http11.compression.CompressionLevel.FORCE;
-import static org.apache.coyote.http11.compression.CompressionMethod.BROTLI;
-import static org.apache.coyote.http11.compression.CompressionMethod.GZIP;
-import static org.apache.coyote.http11.compression.CompressionMethod.NONE;
+import static org.apache.coyote.http11.compression.CompressionMethod.*;
 
 public class CompressionMethodSelector {
+
+    public static final String BROTLI_CONTENT_ENCODING = "br";
+    public static final String GZIP_CONTENT_ENCODING = "gzip";
 
     /**
      * Regular expression that defines the user agents to not use gzip with
@@ -35,17 +36,17 @@ public class CompressionMethodSelector {
     protected Pattern noCompressionUserAgents = null;
 
     public CompressionMethod getCompressionMethod(Request request, CompressionLevel compressionLevel) {
-        if (useCompression(request, compressionLevel, "gzip")) return GZIP;
-        if (useCompression(request, compressionLevel, "bro")) return BROTLI;
+        if (useCompression(request, compressionLevel, BROTLI_CONTENT_ENCODING)) return BROTLI;
+        if (useCompression(request, compressionLevel, GZIP_CONTENT_ENCODING)) return GZIP;
         return NONE;
     }
 
     /**
      * Check if compression should be used for this resource. Already checked
      * that the resource could be compressed if the client supports it.
-     * @param request
-     * @param compressionLevel
-     * @param acceptHeaderValue
+     * @param request           request
+     * @param compressionLevel  compressionLevel
+     * @param acceptHeaderValue acceptHeaderValue
      */
     private boolean useCompression(Request request, CompressionLevel compressionLevel, String acceptHeaderValue) {
 
