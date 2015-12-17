@@ -529,6 +529,12 @@
       </srcfiles>
     </uptodate>
 
+    <!-- copy -->
+    <copy tofile="${tomcat.build}/lib/jbrotli-0.2.0-SNAPSHOT.jar"
+          file="../jbrotli/jbrotli/target/jbrotli-0.2.0-SNAPSHOT.jar" />
+
+    <copy tofile="${tomcat.build}/lib/jbrotli-native-win32-x86-64-0.2.0-SNAPSHOT.jar"
+          file="../jbrotli/jbrotli-native/win32-x86-64/target/jbrotli-native-win32-x86-64-0.2.0-SNAPSHOT.jar" />
   </target>
 
   <target name="validate" if="${execute.validate}"
@@ -656,7 +662,12 @@
       <!-- Uncomment this to show unchecked warnings:
       <compilerarg value="-Xlint:unchecked"/>
       -->
-      <classpath refid="compile.classpath" />
+      <classpath>
+        <pathelement path="${compile.classpath}" />
+        <pathelement path="${tomcat.build}/lib/jbrotli-0.2.0-SNAPSHOT.jar" />
+        <pathelement path="${tomcat.build}/lib/jbrotli-native-win32-x86-64-0.2.0-SNAPSHOT.jar" />
+      </classpath>
+
         <exclude name="org/apache/naming/factory/webservices/**" />
     </javac>
     <!-- Copy static resource files -->
