@@ -23,17 +23,25 @@ import org.apache.coyote.OutputBuffer;
 import org.apache.coyote.Response;
 import org.apache.coyote.http11.OutputFilter;
 import org.apache.tomcat.util.buf.ByteChunk;
+import org.scijava.nativelib.NativeLoader;
 
 import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * Gzip output filter.
+ * Brotli output filter.
  *
- * @author Remy Maucherat
+ * @author Martin W. Kirst
  */
 public class BrotliOutputFilter implements OutputFilter {
 
+    static {
+        try {
+            NativeLoader.loadLibrary("brotli");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     /**
      * Logger.
