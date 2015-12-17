@@ -17,6 +17,8 @@
 
 package org.apache.coyote.http11.filters;
 
+import de.bitkings.jbrotli.Brotli;
+import de.bitkings.jbrotli.BrotliOutputStream;
 import org.apache.coyote.OutputBuffer;
 import org.apache.coyote.Response;
 import org.apache.coyote.http11.OutputFilter;
@@ -24,7 +26,6 @@ import org.apache.tomcat.util.buf.ByteChunk;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.zip.GZIPOutputStream;
 
 /**
  * Gzip output filter.
@@ -53,7 +54,7 @@ public class BrotliOutputFilter implements OutputFilter {
     /**
      * Compression output stream.
      */
-    protected GZIPOutputStream compressionStream = null;
+    protected BrotliOutputStream brotliOutputStream = null;
 
 
     /**
@@ -71,13 +72,11 @@ public class BrotliOutputFilter implements OutputFilter {
      * @return number of bytes written by the filter
      */
     @Override
-    public int doWrite(ByteChunk chunk, Response res)
-        throws IOException {
-        if (compressionStream == null) {
-            compressionStream = new GZIPOutputStream(fakeOutputStream, true);
+    public int doWrite(ByteChunk chunk, Response res) throws IOException {
+        if (brotliOutputStream == null) {
+            brotliOutputStream = new BrotliOutputStream(fakeOutputStream, getBrotliParameter());
         }
-        compressionStream.write(chunk.getBytes(), chunk.getStart(),
-                                chunk.getLength());
+        brotliOutputStream.write(chunk.getBytes(), chunk.getStart(), chunk.getLength());
         return chunk.getLength();
     }
 
@@ -94,12 +93,12 @@ public class BrotliOutputFilter implements OutputFilter {
      * Added to allow flushing to happen for the gzip'ed outputstream
      */
     public void flush() {
-        if (compressionStream != null) {
+        if (brotliOutputStream != null) {
             try {
                 if (log.isDebugEnabled()) {
                     log.debug("Flushing the compression stream!");
                 }
-                compressionStream.flush();
+                brotliOutputStream.flush();
             } catch (IOException e) {
                 if (log.isDebugEnabled()) {
                     log.debug("Ignored exception while flushing gzip filter", e);
@@ -133,13 +132,11 @@ public class BrotliOutputFilter implements OutputFilter {
      * buffer.doWrite during the execution of this method.
      */
     @Override
-    public long end()
-        throws IOException {
-        if (compressionStream == null) {
-            compressionStream = new GZIPOutputStream(fakeOutputStream, true);
+    public long end() throws IOException {
+        if (brotliOutputStream == null) {
+            brotliOutputStream = new BrotliOutputStream(fakeOutputStream, getBrotliParameter());
         }
-        compressionStream.finish();
-        compressionStream.close();
+        brotliOutputStream.close();
         return ((OutputFilter) buffer).end();
     }
 
@@ -150,15 +147,14 @@ public class BrotliOutputFilter implements OutputFilter {
     @Override
     public void recycle() {
         // Set compression stream to null
-        compressionStream = null;
+        brotliOutputStream = null;
     }
 
 
     // ------------------------------------------- FakeOutputStream Inner Class
 
 
-    protected class FakeOutputStream
-        extends OutputStream {
+    protected class FakeOutputStream extends OutputStream {
         protected final ByteChunk outputChunk = new ByteChunk();
         protected final byte[] singleByteBuffer = new byte[1];
         @Override
@@ -182,5 +178,11 @@ public class BrotliOutputFilter implements OutputFilter {
         public void close() throws IOException {/*NOOP*/}
     }
 
+
+    private Brotli.Parameter getBrotliParameter() {
+        Brotli.Parameter defaultParameter = Brotli.DEFAULT_PARAMETER;
+        defaultParameter.setQuality(5);
+        return defaultParameter;
+    }
 
 }
