@@ -16,16 +16,11 @@
  */
 package org.apache.coyote.http11;
 
-import java.io.IOException;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.util.Iterator;
-import java.util.concurrent.LinkedBlockingDeque;
-
 import org.apache.coyote.ActionCode;
 import org.apache.coyote.ByteBufferHolder;
 import org.apache.coyote.OutputBuffer;
 import org.apache.coyote.Response;
+import org.apache.coyote.http11.filters.BrotliOutputFilter;
 import org.apache.coyote.http11.filters.GzipOutputFilter;
 import org.apache.tomcat.util.buf.ByteChunk;
 import org.apache.tomcat.util.buf.MessageBytes;
@@ -33,6 +28,12 @@ import org.apache.tomcat.util.http.HttpMessages;
 import org.apache.tomcat.util.net.AbstractEndpoint;
 import org.apache.tomcat.util.net.SocketWrapper;
 import org.apache.tomcat.util.res.StringManager;
+
+import java.io.IOException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.Iterator;
+import java.util.concurrent.LinkedBlockingDeque;
 
 public abstract class AbstractOutputBuffer<S> implements OutputBuffer {
 
@@ -114,7 +115,7 @@ public abstract class AbstractOutputBuffer<S> implements OutputBuffer {
     /**
      * The max size of the buffered write buffer
      */
-    protected int bufferedWriteSize = 64*1024; //64k default write buffer
+    protected int bufferedWriteSize = 64 * 1024; //64k default write buffer
 
 
     protected AbstractOutputBuffer(Response response, int headerBufferSize) {
@@ -141,13 +142,13 @@ public abstract class AbstractOutputBuffer<S> implements OutputBuffer {
      * The string manager for this package.
      */
     protected static final StringManager sm =
-        StringManager.getManager(Constants.Package);
+            StringManager.getManager(Constants.Package);
 
     /**
      * Logger.
      */
     private static final org.apache.juli.logging.Log log
-        = org.apache.juli.logging.LogFactory.getLog(AbstractOutputBuffer.class);
+            = org.apache.juli.logging.LogFactory.getLog(AbstractOutputBuffer.class);
 
     // ------------------------------------------------------------- Properties
 
@@ -158,7 +159,7 @@ public abstract class AbstractOutputBuffer<S> implements OutputBuffer {
     public void addFilter(OutputFilter filter) {
 
         OutputFilter[] newFilterLibrary =
-            new OutputFilter[filterLibrary.length + 1];
+                new OutputFilter[filterLibrary.length + 1];
         for (int i = 0; i < filterLibrary.length; i++) {
             newFilterLibrary[i] = filterLibrary[i];
         }
@@ -239,7 +240,7 @@ public abstract class AbstractOutputBuffer<S> implements OutputBuffer {
      */
     @Override
     public int doWrite(ByteChunk chunk, Response res)
-        throws IOException {
+            throws IOException {
 
         if (!committed) {
 
@@ -277,7 +278,7 @@ public abstract class AbstractOutputBuffer<S> implements OutputBuffer {
      * @throws IOException an underlying I/O error occurred
      */
     public void flush()
-        throws IOException {
+            throws IOException {
 
         if (!committed) {
 
@@ -297,6 +298,13 @@ public abstract class AbstractOutputBuffer<S> implements OutputBuffer {
                             " of the filter chain...");
                 }
                 ((GzipOutputFilter) activeFilters[i]).flush();
+                break;
+            } else if (activeFilters[i] instanceof BrotliOutputFilter) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Flushing the brotli filter at position " + i +
+                            " of the filter chain...");
+                }
+                ((BrotliOutputFilter) activeFilters[i]).flush();
                 break;
             }
         }
@@ -382,7 +390,7 @@ public abstract class AbstractOutputBuffer<S> implements OutputBuffer {
 
 
     public abstract void init(SocketWrapper<S> socketWrapper,
-            AbstractEndpoint<S> endpoint) throws IOException;
+                              AbstractEndpoint<S> endpoint) throws IOException;
 
     public abstract void sendAck() throws IOException;
 
@@ -401,17 +409,17 @@ public abstract class AbstractOutputBuffer<S> implements OutputBuffer {
         // Write status code
         int status = response.getStatus();
         switch (status) {
-        case 200:
-            write(Constants._200_BYTES);
-            break;
-        case 400:
-            write(Constants._400_BYTES);
-            break;
-        case 404:
-            write(Constants._404_BYTES);
-            break;
-        default:
-            write(status);
+            case 200:
+                write(Constants._200_BYTES);
+                break;
+            case 400:
+                write(Constants._400_BYTES);
+                break;
+            case 404:
+                write(Constants._404_BYTES);
+                break;
+            default:
+                write(status);
         }
 
         headerBuffer[pos++] = Constants.SP;
@@ -430,17 +438,17 @@ public abstract class AbstractOutputBuffer<S> implements OutputBuffer {
         }
 
         // End the response status line
-        if (org.apache.coyote.Constants.IS_SECURITY_ENABLED){
-           AccessController.doPrivileged(
-                new PrivilegedAction<Void>(){
-                    @Override
-                    public Void run(){
-                        headerBuffer[pos++] = Constants.CR;
-                        headerBuffer[pos++] = Constants.LF;
-                        return null;
+        if (org.apache.coyote.Constants.IS_SECURITY_ENABLED) {
+            AccessController.doPrivileged(
+                    new PrivilegedAction<Void>() {
+                        @Override
+                        public Void run() {
+                            headerBuffer[pos++] = Constants.CR;
+                            headerBuffer[pos++] = Constants.LF;
+                            return null;
+                        }
                     }
-                }
-           );
+            );
         } else {
             headerBuffer[pos++] = Constants.CR;
             headerBuffer[pos++] = Constants.LF;
@@ -452,7 +460,7 @@ public abstract class AbstractOutputBuffer<S> implements OutputBuffer {
     /**
      * Send a header.
      *
-     * @param name Header name
+     * @param name  Header name
      * @param value Header value
      */
     public void sendHeader(MessageBytes name, MessageBytes value) {
@@ -561,7 +569,7 @@ public abstract class AbstractOutputBuffer<S> implements OutputBuffer {
         int len = s.length();
         checkLengthBeforeWrite(len);
         for (int i = 0; i < len; i++) {
-            char c = s.charAt (i);
+            char c = s.charAt(i);
             // Note:  This is clearly incorrect for many strings,
             // but is the only consistent approach within the current
             // servlet framework.  It must suffice until servlet output
@@ -606,15 +614,16 @@ public abstract class AbstractOutputBuffer<S> implements OutputBuffer {
     //------------------------------------------------------ Non-blocking writes
 
     protected abstract boolean hasMoreDataToFlush();
+
     protected abstract void registerWriteInterest() throws IOException;
 
 
     /**
      * Writes any remaining buffered data.
      *
-     * @param block     Should this method block until the buffer is empty
-     * @return  <code>true</code> if data remains in the buffer (which can only
-     *          happen in non-blocking mode) else <code>false</code>.
+     * @param block Should this method block until the buffer is empty
+     * @return <code>true</code> if data remains in the buffer (which can only
+     * happen in non-blocking mode) else <code>false</code>.
      * @throws IOException
      */
     protected abstract boolean flushBuffer(boolean block) throws IOException;
@@ -644,7 +653,7 @@ public abstract class AbstractOutputBuffer<S> implements OutputBuffer {
 
     protected boolean hasBufferedData() {
         boolean result = false;
-        if (bufferedWrites!=null) {
+        if (bufferedWrites != null) {
             Iterator<ByteBufferHolder> iter = bufferedWrites.iterator();
             while (!result && iter.hasNext()) {
                 result = iter.next().hasData();
