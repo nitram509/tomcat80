@@ -16,24 +16,7 @@
  */
 package org.apache.coyote.http11;
 
-import java.io.IOException;
-import java.io.InterruptedIOException;
-import java.nio.ByteBuffer;
-import java.util.Locale;
-import java.util.Set;
-import java.util.StringTokenizer;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Pattern;
-
-import javax.servlet.RequestDispatcher;
-import javax.servlet.http.HttpServletResponse;
-
-import org.apache.coyote.AbstractProcessor;
-import org.apache.coyote.ActionCode;
-import org.apache.coyote.AsyncContextCallback;
-import org.apache.coyote.ErrorState;
-import org.apache.coyote.RequestInfo;
-import org.apache.coyote.UpgradeToken;
+import org.apache.coyote.*;
 import org.apache.coyote.http11.compression.CompressionLevel;
 import org.apache.coyote.http11.compression.CompressionMethod;
 import org.apache.coyote.http11.compression.CompressionMethodSelector;
@@ -53,11 +36,22 @@ import org.apache.tomcat.util.net.SocketStatus;
 import org.apache.tomcat.util.net.SocketWrapper;
 import org.apache.tomcat.util.res.StringManager;
 
+import javax.servlet.RequestDispatcher;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.nio.ByteBuffer;
+import java.util.Locale;
+import java.util.Set;
+import java.util.StringTokenizer;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
+
 import static org.apache.coyote.http11.compression.CompressionLevel.FORCE;
 import static org.apache.coyote.http11.compression.CompressionLevel.ON;
-import static org.apache.coyote.http11.compression.CompressionMethod.BROTLI;
-import static org.apache.coyote.http11.compression.CompressionMethod.GZIP;
-import static org.apache.coyote.http11.compression.CompressionMethod.NONE;
+import static org.apache.coyote.http11.compression.CompressionMethod.*;
+import static org.apache.coyote.http11.compression.CompressionMethodSelector.BROTLI_CONTENT_ENCODING;
+import static org.apache.coyote.http11.compression.CompressionMethodSelector.GZIP_CONTENT_ENCODING;
 
 public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
 
@@ -1453,10 +1447,10 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
 
         if (compressionMethod == GZIP) {
             getOutputBuffer().addActiveFilter(outputFilters[Constants.GZIP_FILTER]);
-            headers.setValue("Content-Encoding").setString("gzip");
+            headers.setValue("Content-Encoding").setString(GZIP_CONTENT_ENCODING);
         } else if (compressionMethod == BROTLI) {
             getOutputBuffer().addActiveFilter(outputFilters[Constants.BROTLI_FILTER]);
-            headers.setValue("Content-Encoding").setString("bro");
+            headers.setValue("Content-Encoding").setString(BROTLI_CONTENT_ENCODING);
         }
         // If it might be compressed, set the Vary header
         if (isCompressable) {
