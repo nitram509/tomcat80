@@ -530,10 +530,10 @@
     </uptodate>
 
     <!-- copy -->
-    <copy tofile="${tomcat.build}/lib/jbrotli-0.2.0-SNAPSHOT.jar"
-          file="../jbrotli/jbrotli/target/jbrotli-0.2.0-SNAPSHOT.jar" />
-    <copy tofile="${tomcat.build}/lib/jbrotli-native-win32-x86-64-0.2.0-SNAPSHOT.jar"
-          file="../jbrotli/jbrotli-native/win32-x86-64/target/jbrotli-native-win32-x86-64-0.2.0-SNAPSHOT.jar" />
+    <copy tofile="${tomcat.build}/lib/jbrotli-0.2.1-SNAPSHOT.jar"
+          file="../jbrotli/jbrotli/target/jbrotli-0.2.1-SNAPSHOT.jar" />
+    <copy tofile="${tomcat.build}/lib/jbrotli-native-win32-x86-amd64-0.2.1-SNAPSHOT.jar"
+          file="../jbrotli/jbrotli-native/win32-x86-amd64/target/jbrotli-native-win32-x86-amd64-0.2.1-SNAPSHOT.jar" />
     <copy tofile="${tomcat.build}/lib/native-lib-loader-2.1.2.jar"
           file="native-lib-loader-2.1.2.jar"/>
     <copy tofile="${tomcat.build}/keystore.jks"
