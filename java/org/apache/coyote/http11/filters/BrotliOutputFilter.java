@@ -54,6 +54,7 @@ public class BrotliOutputFilter implements OutputFilter {
     private BrotliOutputStream brotliOutputStream = null;
     private final OutputStream outputStream2ByteChunkAdapter = new OutputStream2ByteChunkAdapter();
 
+
     @Override
     public int doWrite(ByteChunk chunk, Response res) throws IOException {
         if (brotliOutputStream == null) {
@@ -82,10 +83,10 @@ public class BrotliOutputFilter implements OutputFilter {
 
     @Override
     public long end() throws IOException {
-        if (brotliOutputStream == null) {
-            brotliOutputStream = new BrotliOutputStream(outputStream2ByteChunkAdapter, getBrotliParameter());
+        if (brotliOutputStream != null) {
+            brotliOutputStream.close();
+            brotliOutputStream = null;
         }
-        brotliOutputStream.close();
         return ((OutputFilter) nextPipelineBuffer).end();
     }
 
@@ -115,7 +116,15 @@ public class BrotliOutputFilter implements OutputFilter {
     }
 
 
+    private Brotli.Parameter getBrotliParameter() {
+        Brotli.Parameter defaultParameter = Brotli.DEFAULT_PARAMETER;
+        defaultParameter.setQuality(4);
+        return defaultParameter;
+    }
+
+
     private class OutputStream2ByteChunkAdapter extends OutputStream {
+
         private final ByteChunk outputChunk = new ByteChunk();
 
         @Override
@@ -131,15 +140,9 @@ public class BrotliOutputFilter implements OutputFilter {
 
         @Override
         public void flush() throws IOException {/*NOOP*/}
-
         @Override
         public void close() throws IOException {/*NOOP*/}
-    }
 
-    private Brotli.Parameter getBrotliParameter() {
-        Brotli.Parameter defaultParameter = Brotli.DEFAULT_PARAMETER;
-        defaultParameter.setQuality(4);
-        return defaultParameter;
     }
 
 }
