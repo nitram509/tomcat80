@@ -17,8 +17,8 @@
 
 package org.apache.coyote.http11.filters;
 
-import de.bitkings.jbrotli.Brotli;
-import de.bitkings.jbrotli.BrotliOutputStream;
+import org.meteogroup.jbrotli.Brotli;
+import org.meteogroup.jbrotli.BrotliOutputStream;
 import org.apache.coyote.OutputBuffer;
 import org.apache.coyote.Response;
 import org.apache.coyote.http11.OutputFilter;

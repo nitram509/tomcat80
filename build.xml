@@ -199,6 +199,9 @@
   <!-- Classpaths -->
   <path id="compile.classpath">
     <pathelement location="${jdt.jar}"/>
+    <pathelement path="${tomcat.build}/lib/native-lib-loader-2.1.2.jar" />
+    <pathelement path="${tomcat.build}/lib/jbrotli-0.2.1-SNAPSHOT.jar" />
+    <pathelement path="${tomcat.build}/lib/jbrotli-native-win32-x86-amd64-0.2.1-SNAPSHOT.jar" />
   </path>
 
   <path id="tomcat.classpath">
@@ -665,12 +668,7 @@
       <!-- Uncomment this to show unchecked warnings:
       <compilerarg value="-Xlint:unchecked"/>
       -->
-      <classpath>
-        <pathelement path="${compile.classpath}" />
-        <pathelement path="${tomcat.build}/lib/jbrotli-0.2.0-SNAPSHOT.jar" />
-        <pathelement path="${tomcat.build}/lib/jbrotli-native-win32-x86-64-0.2.0-SNAPSHOT.jar" />
-      </classpath>
-
+      <classpath refid="compile.classpath" />
         <exclude name="org/apache/naming/factory/webservices/**" />
     </javac>
     <!-- Copy static resource files -->
