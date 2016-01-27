@@ -47,41 +47,23 @@ public class BrotliOutputFilter implements OutputFilter {
      * Logger.
      */
     private static final org.apache.juli.logging.Log log =
-        org.apache.juli.logging.LogFactory.getLog(BrotliOutputFilter.class);
+            org.apache.juli.logging.LogFactory.getLog(BrotliOutputFilter.class);
 
-
-    // ----------------------------------------------------- Instance Variables
 
     private OutputBuffer nextPipelineBuffer;
     private BrotliOutputStream brotliOutputStream = null;
-    private final OutputStream fakeOutputStream = new FakeOutputStream();
+    private final OutputStream outputStream2ByteChunkAdapter = new OutputStream2ByteChunkAdapter();
 
-    /**
-     * Write some bytes.
-     *
-     * @return number of bytes written by the filter
-     */
     @Override
     public int doWrite(ByteChunk chunk, Response res) throws IOException {
         if (brotliOutputStream == null) {
-            brotliOutputStream = new BrotliOutputStream(fakeOutputStream, getBrotliParameter());
+            brotliOutputStream = new BrotliOutputStream(outputStream2ByteChunkAdapter, getBrotliParameter());
         }
         brotliOutputStream.write(chunk.getBytes(), chunk.getStart(), chunk.getLength());
         return chunk.getLength();
     }
 
 
-    @Override
-    public long getBytesWritten() {
-        return nextPipelineBuffer.getBytesWritten();
-    }
-
-
-    // --------------------------------------------------- OutputFilter Methods
-
-    /**
-     * Added to allow flushing to happen for the gzip'ed outputstream
-     */
     public void flush() {
         if (brotliOutputStream != null) {
             try {
@@ -97,43 +79,17 @@ public class BrotliOutputFilter implements OutputFilter {
         }
     }
 
-    /**
-     * Some filters need additional parameters from the response. All the
-     * necessary reading can occur in that method, as this method is called
-     * after the response header processing is complete.
-     */
-    @Override
-    public void setResponse(Response response) {
-        // NOOP: No need for parameters from response in this filter
-    }
 
-
-    /**
-     * Set the next nextPipelineBuffer in the filter pipeline.
-     */
-    @Override
-    public void setBuffer(OutputBuffer buffer) {
-        this.nextPipelineBuffer = buffer;
-    }
-
-
-    /**
-     * End the current request. It is acceptable to write extra bytes using
-     * nextPipelineBuffer.doWrite during the execution of this method.
-     */
     @Override
     public long end() throws IOException {
         if (brotliOutputStream == null) {
-            brotliOutputStream = new BrotliOutputStream(fakeOutputStream, getBrotliParameter());
+            brotliOutputStream = new BrotliOutputStream(outputStream2ByteChunkAdapter, getBrotliParameter());
         }
         brotliOutputStream.close();
         return ((OutputFilter) nextPipelineBuffer).end();
     }
 
 
-    /**
-     * Make the filter ready to process the next request.
-     */
     @Override
     public void recycle() {
         // Set compression stream to null
@@ -141,37 +97,48 @@ public class BrotliOutputFilter implements OutputFilter {
     }
 
 
-    // ------------------------------------------- FakeOutputStream Inner Class
+    @Override
+    public long getBytesWritten() {
+        return nextPipelineBuffer.getBytesWritten();
+    }
 
 
-    private class FakeOutputStream extends OutputStream {
+    @Override
+    public void setBuffer(OutputBuffer buffer) {
+        this.nextPipelineBuffer = buffer;
+    }
+
+
+    @Override
+    public void setResponse(Response response) {
+        // not needed by BrotliOutputFilter
+    }
+
+
+    private class OutputStream2ByteChunkAdapter extends OutputStream {
         private final ByteChunk outputChunk = new ByteChunk();
-        private final byte[] singleByteBuffer = new byte[1];
+
         @Override
-        public void write(int b)
-            throws IOException {
-            // Shouldn't get used for good performance, but is needed for
-            // compatibility with Sun JDK 1.4.0
-            singleByteBuffer[0] = (byte) (b & 0xff);
-            outputChunk.setBytes(singleByteBuffer, 0, 1);
+        public void write(int b) throws IOException {
             nextPipelineBuffer.doWrite(outputChunk, null);
         }
+
         @Override
-        public void write(byte[] b, int off, int len)
-            throws IOException {
+        public void write(byte[] b, int off, int len) throws IOException {
             outputChunk.setBytes(b, off, len);
             nextPipelineBuffer.doWrite(outputChunk, null);
         }
+
         @Override
         public void flush() throws IOException {/*NOOP*/}
+
         @Override
         public void close() throws IOException {/*NOOP*/}
     }
 
-
     private Brotli.Parameter getBrotliParameter() {
         Brotli.Parameter defaultParameter = Brotli.DEFAULT_PARAMETER;
-        defaultParameter.setQuality(5);
+        defaultParameter.setQuality(4);
         return defaultParameter;
     }
 
