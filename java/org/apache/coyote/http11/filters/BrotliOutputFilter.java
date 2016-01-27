@@ -17,12 +17,12 @@
 
 package org.apache.coyote.http11.filters;
 
-import org.meteogroup.jbrotli.Brotli;
-import org.meteogroup.jbrotli.BrotliOutputStream;
 import org.apache.coyote.OutputBuffer;
 import org.apache.coyote.Response;
 import org.apache.coyote.http11.OutputFilter;
 import org.apache.tomcat.util.buf.ByteChunk;
+import org.meteogroup.jbrotli.Brotli;
+import org.meteogroup.jbrotli.BrotliOutputStream;
 import org.scijava.nativelib.NativeLoader;
 
 import java.io.IOException;
@@ -46,33 +46,15 @@ public class BrotliOutputFilter implements OutputFilter {
     /**
      * Logger.
      */
-    protected static final org.apache.juli.logging.Log log =
+    private static final org.apache.juli.logging.Log log =
         org.apache.juli.logging.LogFactory.getLog(BrotliOutputFilter.class);
 
 
     // ----------------------------------------------------- Instance Variables
 
-
-    /**
-     * Next buffer in the pipeline.
-     */
-    protected OutputBuffer buffer;
-
-
-    /**
-     * Compression output stream.
-     */
-    protected BrotliOutputStream brotliOutputStream = null;
-
-
-    /**
-     * Fake internal output stream.
-     */
-    protected final OutputStream fakeOutputStream = new FakeOutputStream();
-
-
-    // --------------------------------------------------- OutputBuffer Methods
-
+    private OutputBuffer nextPipelineBuffer;
+    private BrotliOutputStream brotliOutputStream = null;
+    private final OutputStream fakeOutputStream = new FakeOutputStream();
 
     /**
      * Write some bytes.
@@ -91,7 +73,7 @@ public class BrotliOutputFilter implements OutputFilter {
 
     @Override
     public long getBytesWritten() {
-        return buffer.getBytesWritten();
+        return nextPipelineBuffer.getBytesWritten();
     }
 
 
@@ -127,17 +109,17 @@ public class BrotliOutputFilter implements OutputFilter {
 
 
     /**
-     * Set the next buffer in the filter pipeline.
+     * Set the next nextPipelineBuffer in the filter pipeline.
      */
     @Override
     public void setBuffer(OutputBuffer buffer) {
-        this.buffer = buffer;
+        this.nextPipelineBuffer = buffer;
     }
 
 
     /**
      * End the current request. It is acceptable to write extra bytes using
-     * buffer.doWrite during the execution of this method.
+     * nextPipelineBuffer.doWrite during the execution of this method.
      */
     @Override
     public long end() throws IOException {
@@ -145,7 +127,7 @@ public class BrotliOutputFilter implements OutputFilter {
             brotliOutputStream = new BrotliOutputStream(fakeOutputStream, getBrotliParameter());
         }
         brotliOutputStream.close();
-        return ((OutputFilter) buffer).end();
+        return ((OutputFilter) nextPipelineBuffer).end();
     }
 
 
@@ -162,9 +144,9 @@ public class BrotliOutputFilter implements OutputFilter {
     // ------------------------------------------- FakeOutputStream Inner Class
 
 
-    protected class FakeOutputStream extends OutputStream {
-        protected final ByteChunk outputChunk = new ByteChunk();
-        protected final byte[] singleByteBuffer = new byte[1];
+    private class FakeOutputStream extends OutputStream {
+        private final ByteChunk outputChunk = new ByteChunk();
+        private final byte[] singleByteBuffer = new byte[1];
         @Override
         public void write(int b)
             throws IOException {
@@ -172,13 +154,13 @@ public class BrotliOutputFilter implements OutputFilter {
             // compatibility with Sun JDK 1.4.0
             singleByteBuffer[0] = (byte) (b & 0xff);
             outputChunk.setBytes(singleByteBuffer, 0, 1);
-            buffer.doWrite(outputChunk, null);
+            nextPipelineBuffer.doWrite(outputChunk, null);
         }
         @Override
         public void write(byte[] b, int off, int len)
             throws IOException {
             outputChunk.setBytes(b, off, len);
-            buffer.doWrite(outputChunk, null);
+            nextPipelineBuffer.doWrite(outputChunk, null);
         }
         @Override
         public void flush() throws IOException {/*NOOP*/}
