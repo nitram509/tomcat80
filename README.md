@@ -9,8 +9,16 @@ It uses [jbrotli](https://github.com/nitram509/jbrotli) Java implementation.
 
 ##### Status of this project
 
-🚨 Experimental 🚀
+❌ CANCELED
 
+The original idea was to improve Tomcat code base with Brotli support.
+After discussion with Tomcat committers it turns out they will not include
+Brotli support into code base, not even putting it on a roadmap.
+
+If you wanna use Brotli compression in your web application, have a look
+at the [BrotliServletFilter](https://github.com/meteogroup/jbrotli) in jbrotli
+
+Now, this code is only meant for learning exercise.
 
 ## How to build
 
